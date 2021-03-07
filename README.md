@@ -33,7 +33,7 @@ Additional Configuration options respect SPC version of DataSource:
 * The hosts readoffsets can start from any address in the range of the writes one, according with total dimensions.
 
 * The DataSource adds the following the output signals:
-  1. RealTime measured used tsc Counter, using the MARTe2 default frequency found in /proc/cpuinfo (not the tsc calibrated one), the tsc offset is taken at the first cycle
+  1. RealTime measured using tsc counter multiplied by the period (MARTe2 default frequency found in /proc/cpuinfo -not the tsc calibrated one), the tsc offset is taken at the first cycle for both master,slave configuration.
   2. Counters (NumberOfHost uint32) array, that contains the counter placed ath the end of OutputBuffer and popolated by each host
   3. Diagnostics  (NumberOfHost uint32) array that contains the age of the packet, expressed  in packet counts, respect the local current time ( local_counter - remote_host1_counter*R where R is the ratio between hosts downsampling factors)
   
