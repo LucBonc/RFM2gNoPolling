@@ -10,7 +10,7 @@ for Input. This means that during the Syncronise method of the DataSource the in
 after the synch cycle that works as follow:
 
 1. the master writes its own data starting from its writeoffset for the dimensions specified in the outputBuffer channel;
-2. the master changes the counter via poke/peek operations (standard TCV approach). The counter and the timer arei located at the start of rfm memory (bytes 0-8);
+2. the master changes the counter via poke/peek operations (standard TCV approach). The counter and the timer are located at the start of rfm memory (bytes 0-8);
 3. the master polls sleep a configured time;
 4. the master read the input from rfm starting from the readoffset and for the dimensions specified in the inputBuffer channel;
 
