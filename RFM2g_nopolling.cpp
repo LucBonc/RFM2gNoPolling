@@ -1,9 +1,12 @@
 /**
- * @file LinuxTimer.cpp
- * @brief Source file for class RFM2g
- * @date 10/10/2019
- * @author Cristian Galperti
+ * @file RFM2g_nopolling.cpp
+ * @.cpp file for class RFM2g
+ * @date 08/03/2021
+ * @authors Davide Liuzza, Luca Boncagni,  Cristian Galperti
  *
+ *
+ * @copyright Copyright 2021 FSN-ENEA | Nuclear and Fusion Energy Department, ENEA Frascati (Rome)
+ * Italy.
  * @copyright Copyright 2019 SPC | Swiss Plasma Center, EPFL Lausanne
  * Switzerland.
  * @copyright Copyright 2015 F4E | European Joint Undertaking for ITER and
@@ -83,7 +86,6 @@ RFM2g::RFM2g() :
     waitdma = true;
     downsamplefactor = 1u;
     startcycle = 0u;
-    sleepTimeTicksdeltaTicks = 0u;
     master = false;
     rfmdevice[0] = '\0';
     rfmhandle = static_cast<RFM2GHANDLE>(NULL);
@@ -100,7 +102,7 @@ RFM2g::RFM2g() :
     dmabuffersize = 0u;
     inputsize = 0u;
     outputsize = 0u;
-  //  nexttargetcycle = 0u;
+
     currentcycle = 0u;
     oktorun = true;
     nOfHosts = 0u;
@@ -284,32 +286,6 @@ bool RFM2g::Initialise(StructuredDataI &data) {
             executor.SetPriorityLevel(-1);
             Threads::PriorityClassType tmp = executor.GetPriorityClass();
             REPORT_ERROR(ErrorManagement::Information, "executor prio class id %d", tmp);
-        }
-    }
-
-    //read the sleep time interval during polling operation
-
-    if (ok) {
-        float64 waitingPeriod = SLEEP_WAITING_PERIOD;
-        ok = data.Read("sleepTime", waitingPeriod);
-        if (!ok) {
-            REPORT_ERROR(ErrorManagement::ParametersError, "Sleep time not specified. Default is %d", SLEEP_WAITING_PERIOD);
-            ok = true;
-        }
-        else {
-            REPORT_ERROR(ErrorManagement::Information, "Sleep time is %d microseconds", waitingPeriod);
-        }
-
-        if (waitingPeriod < 0.01) {
-
-            sleepTimeTicksdeltaTicks = 0.F;
-        }
-        else {
-            float64 frequency_ = waitingPeriod * 1.e-6;
-            frequency_ = 1. / frequency_;
-
-            float64 sleepTimeT = (static_cast<float64>(HighResolutionTimer::Frequency()) / frequency_);
-            sleepTimeTicksdeltaTicks = static_cast<uint64>(sleepTimeT);
         }
     }
 
@@ -588,7 +564,6 @@ bool RFM2g::Initialise(StructuredDataI &data) {
         }
     }
 
-
     if (ok) {
 
         bool ok1 = InitializeHostsToReadInfo();
@@ -746,8 +721,7 @@ bool RFM2g::SetConfiguredDatabase(StructuredDataI &data) {
             if (ok) {
                 ok = (numberOfCounters == (nOfHosts));
                 if (!ok) {
-                    REPORT_ERROR(ErrorManagement::ParametersError, "Number of elements of the sixth signal not corrected. You must have %d signals",
-                                 nOfHosts );
+                    REPORT_ERROR(ErrorManagement::ParametersError, "Number of elements of the sixth signal not corrected. You must have %d signals", nOfHosts);
                 }
 
             }
@@ -776,10 +750,10 @@ bool RFM2g::SetConfiguredDatabase(StructuredDataI &data) {
             REPORT_ERROR(ErrorManagement::InitialisationError, "Cannot get the number of elements of the seventh signal (Diagnostics)");
 
             if (ok) {
-                ok = (numberOfDiagnostics == (nOfHosts ));
+                ok = (numberOfDiagnostics == (nOfHosts));
                 if (!ok) {
                     REPORT_ERROR(ErrorManagement::ParametersError, "Number of elements of the seventh signal not corrected. You must have %d signals",
-                                 nOfHosts );
+                                 nOfHosts);
                 }
 
             }
@@ -818,70 +792,6 @@ bool RFM2g::SetConfiguredDatabase(StructuredDataI &data) {
         REPORT_ERROR(ErrorManagement::ParametersError, "RFM2g in master mode must not be placed on a separated thread");
         ok = false;
     }
-
-    /*
-     if(readoffset<writeoffset && (writeoffset-readoffset)<inputsize)
-     {
-     REPORT_ERROR(ErrorManagement::ParametersError, "input memory area overlaps with the output one");
-     ok=false;
-     }
-
-     if(writeoffset<readoffset && (readoffset-writeoffset)<outputsize)
-     {
-     REPORT_ERROR(ErrorManagement::ParametersError, "output memory area overlaps with the input one");
-     ok=false;
-     }
-     */
-
-    /* TODO: This part is related to the Frequency attribute of the
-     * time signal, to be checked since this DataSource can be
-     * synchronizing or not
-     */
-
-    /*
-     uint32 nOfFunctions = GetNumberOfFunctions();
-     float32 frequency = -1.0F;
-     bool found = false;
-     uint32 functionx;
-     for (functionIdx = 0u; (functionIdx < nOfFunctions) && (ok); functionIdx++) {
-     uint32 nOfSignals = 0u;
-     ok = GetFunctionNumberOfSignals(InputSignals, functionIdx, nOfSignals);
-
-     if (ok) {
-     uint32 i;
-     for (i = 0u; (i < nOfSignals) && (ok) && (!found); i++) {
-     ok = GetFunctionSignalReadFrequency(InputSignals, functionIdx, i, frequency);
-     found = (frequency > 0.F);
-     if (found) {
-     synchronisingFunctionIdx = functionIdx;
-     }
-     }
-     }
-
-     }
-     ok = found;
-     if (ok) {
-     REPORT_ERROR(ErrorManagement::Information, "The RFM2g will be set using a frequency of %f Hz", frequency);
-     */
-
-    /*
-     * TODO: This part comes from LinuxTimer, to be checked
-     *
-     float64 periodUsec = (1e6 / frequency);
-     if(incrementspercycle==-1)
-     timerPeriodUsecTime = static_cast<uint32>(periodUsec);
-     else
-     timerPeriodUsecTime = static_cast<uint32>(incrementspercycle);
-     REPORT_ERROR(ErrorManagement::Information, "The timer will be set to increment time by %d us every cycle", timerPeriodUsecTime);
-     float64 sleepTimeT = (static_cast<float64>(HighResolutionTimer::Frequency()) / frequency);
-     sleepTimeTicks = static_cast<uint64>(sleepTimeT);
-     */
-//    }
-    /*
-     if (!ok) {
-     REPORT_ERROR(ErrorManagement::ParametersError, "No frequency > 0 was set (i.e. no signal synchronises on this RFM2g).");
-     }
-     */
 
     if (ok) {
 
@@ -965,7 +875,7 @@ const char8* RFM2g::GetBrokerName(StructuredDataI &data,
         }
     }
     else {
-        // TODO: check if this has already been defined here
+
         if (synchronising) {
             if (direction == InputSignals) {
                 brokerName = "MemoryMapSynchronisedInputBroker";
@@ -1082,7 +992,7 @@ bool RFM2g::PrepareNextState(const char8 *const currentStateName,
                 ok = executor.Start();
             }
         }
-        // TODO: check this if we want to broadcast the system time on the RFM network
+
         counterAndTimer[0] = 0u;
         counterAndTimer[1] = 0u;
         realTimeOffset = 0;
@@ -1095,13 +1005,11 @@ bool RFM2g::PrepareNextState(const char8 *const currentStateName,
         else
             RFM2gWriteDMA(rfmhandle, writeoffset + nodeIdNumber * sizeof(int32), pOutputBufferInternal, outputsize + sizeof(int32));
 
-       // nexttargetcycle = startcycle;
         localCounter = 0u;
         counterEmbedded = 0;
         termmsgsent = false;
         counter = 0u;
-        // Zeroing the RFM cycle counter, to be checked
-        //if(!rfm_master_step(0,-10000000)) // TODO: make init time param
+
         if (!rfm_master_step(0, initruntime)) {
             REPORT_ERROR(ErrorManagement::Warning, "Could not zero the RFM cycle counter");
         }
@@ -1116,7 +1024,7 @@ bool RFM2g::PrepareNextState(const char8 *const currentStateName,
 /*lint -e{715}  [MISRA C++ Rule 0-1-11], [MISRA C++ Rule 0-1-12]. Justification: the method sleeps for the given period irrespectively of the input info.*/
 ErrorManagement::ErrorType RFM2g::Execute(ExecutionInfo &info) {
 
-    ErrorManagement::ErrorType err = ErrorManagement::NoError;  //@Luca: dove leggo queste costanti? (es, NoError)
+    ErrorManagement::ErrorType err = ErrorManagement::NoError;
 
     //while(1) {};
 
@@ -1147,8 +1055,7 @@ ErrorManagement::ErrorType RFM2g::Execute(ExecutionInfo &info) {
         realTime = HighResolutionTimer::Period() * (HighResolutionTimer::Counter() - realTimeOffset);
 
         uint16 stepretry = 0;
-        while (!rfm_master_step(counterAndTimer[0], counterAndTimer[1]) && stepretry < masterstepmaxretries) //TODO: make this parameter
-        {
+        while (!rfm_master_step(counterAndTimer[0], counterAndTimer[1]) && stepretry < masterstepmaxretries) {
             stepretry++;
         }
 
@@ -1168,6 +1075,20 @@ ErrorManagement::ErrorType RFM2g::Execute(ExecutionInfo &info) {
 
         //start the reading operations
         Read(info);
+
+        //In case the master is not able to write its counter, a negative value will appear on the diagnostic channel
+        //Such negative value will be the difference counterAndTimer[0]-lastMasterIteration. It the lastMasterIteration cannot be get
+        //i.e., the get_iteration fails, then a default negative value (-12345) will be provided
+        if (stepretry >= masterstepmaxretries) {
+            diagnosticData[0] = -12345;  //default value in case it is not possible to read the iteration
+
+            int32 lastMasterIteration;
+
+            if (get_iteration(rfmhandle, &lastMasterIteration)) {
+                diagnosticData[0] = counterAndTimer[0] - lastMasterIteration;
+            }
+
+        }
 
 #ifdef _DEBUG
                 REPORT_ERROR(ErrorManagement::Information, "The master has red");
@@ -1250,10 +1171,6 @@ ErrorManagement::ErrorType RFM2g::Execute(ExecutionInfo &info) {
                 REPORT_ERROR(ErrorManagement::Information, "Slave localCounter= %d",localCounter);
 #endif
 
-                //this case if the slave is before the starting cycle
-
-                // (void) fastMux.FastLock(TTInfiniteWait, 0.);
-
                 //this is the case when the slave must write/read (according to the downsample factor)
                 if (localCounter >= downsamplefactor) {
                     realTime = (HighResolutionTimer::Counter() - realTimeOffset) * HighResolutionTimer::Period();
@@ -1308,7 +1225,7 @@ ErrorManagement::ErrorType RFM2g::Execute(ExecutionInfo &info) {
                     if (!check_counter) {
 
                         if (executionMode == RFM2G_EXEC_MODE_SPAWNED) {
-                            err = !(synchSem.Post());  //@Luca: perché la neghi se poi lo sovrascrivi?
+                            err = !(synchSem.Post());
 
                         }
 
@@ -1355,8 +1272,6 @@ ErrorManagement::ErrorType RFM2g::Read(ExecutionInfo &info) {
 
         }
         else {
-            // TODO: here we copy first  because the DMA call is not blocking,
-            // must be verified
 
             RFM2gReadDMA(rfmhandle, hostsToReadInfo[initialHostToRead].hostToReadOffset, pInputBufferInternal, inputsizeRemapped);
 
@@ -1472,7 +1387,7 @@ bool RFM2g::rfm_master_step(int32 rfm_iter,
     return true;
 }
 
-ErrorManagement::ErrorType RFM2g::StopLLC() {   //@Luca: chi la chiama?
+ErrorManagement::ErrorType RFM2g::StopLLC() {
     oktorun = false;
     return ErrorManagement::NoError;
 }
@@ -1512,7 +1427,6 @@ ErrorManagement::ErrorType RFM2g::SetInitialInfo() {
     REPORT_ERROR(ErrorManagement::Information, "The diagnostic counter protocol setting is starting");
 
     //here starts collecting the hosts information
-
 
     int result;
 
@@ -1581,7 +1495,7 @@ bool RFM2g::CheckMemoryContiguity() {
 
     uint32 i = 0;
 
-    for (i = 0; i < nOfHosts -1 && ok; i++) {
+    for (i = 0; i < nOfHosts - 1 && ok; i++) {
 
         ok = (hostsProtocolInfo[i].hostWriteoffset + hostsProtocolInfo[i].hostOutputsize == hostsProtocolInfo[i + 1].hostWriteoffset);
     }
@@ -1595,8 +1509,6 @@ bool RFM2g::CheckMemoryContiguity() {
 }
 
 bool RFM2g::InitializeHostsToReadInfo() {
-
-
 
     hostsToReadInfo = new HostReadMappingInfo[nOfHosts];
 
@@ -1621,8 +1533,6 @@ bool RFM2g::InitializeHostsToReadInfo() {
 ErrorManagement::ErrorType RFM2g::InternalRFMRemapping() {
 
     ErrorManagement::ErrorType err;
-
-
 
     bool exitRemapping = false;
     bool exitFindFinal = false;
@@ -1753,8 +1663,6 @@ ErrorManagement::ErrorType RFM2g::inputSizeRemapping() {
 
 bool RFM2g::InitializeCounterRead() {
 
-
-
     counterRead = new int32[nOfHosts];
 
     bool ok = (counterRead != NULL);
@@ -1776,8 +1684,6 @@ bool RFM2g::InitializeCounterRead() {
 
 bool RFM2g::InitializeDiagnosticData() {
 
-
-
     diagnosticData = new float32[nOfHosts];
 
     bool ok = (diagnosticData != NULL);
@@ -1798,8 +1704,6 @@ bool RFM2g::InitializeDiagnosticData() {
 }
 
 bool RFM2g::InitializeDiagnosticRatio() {
-
-
 
     diagnosticRatio = new float32[nOfHosts];
 
