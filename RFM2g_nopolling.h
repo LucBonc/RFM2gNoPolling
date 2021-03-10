@@ -818,7 +818,14 @@ private:
      */
     int32 currentcycle;
 
+
+
     int32 counter;
+
+    bool alignCounter; // parte nuova aggiunta
+
+    int32 localcurrentcycle;  // parte nuova aggiunta
+
 
     int32 period;
 
