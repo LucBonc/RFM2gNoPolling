@@ -122,8 +122,8 @@ RFM2g::RFM2g() :
     localCounter = 0u;
     counter = 0;
     counterEmbedded = 0;
-    alignCounter=false;  // parte nuova aggiunta
-    localcurrentcycle=0u;// parte nuova aggiunta
+
+    localcurrentcycle = 0u;
     period = 0;
 
     realTimeOffset = 0;
@@ -916,7 +916,6 @@ bool RFM2g::Synchronise() {
      Sleep::NoMore(0.003);
      }
      ////////////////////
-
      */
 
     if (executionMode == RFM2G_EXEC_MODE_SPAWNED) {
@@ -955,7 +954,7 @@ bool RFM2g::Synchronise() {
     }
 
     if (!master) {
-        if (counterAndTimer[0] < counterEmbedded) {
+        if (counterAndTimer[0] != counterEmbedded) {
             counterAndTimer[0] = counterEmbedded;
         }
     }
@@ -1139,33 +1138,10 @@ ErrorManagement::ErrorType RFM2g::Execute(ExecutionInfo &info) {
 
 // the slave gets the current iteration from the RFM
 
-
-
-                 /////Parte nuova aggiunta
-                 if(alignCounter){
-                     counter=(localcurrentcycle/downsamplefactor)*downsamplefactor;
-                     localCounter=0u;
-
-                     alignCounter=false;
-
-                     counterEmbedded=counter/downsamplefactor;
-                 }
-                 //////
-
-
-
-
-
             uint64 elapsedTimeTicks = 0u;
             uint64 startTicksTimeOut = HighResolutionTimer::Counter();
             if (counter == 0)
                 realTimeOffset = HighResolutionTimer::Counter();
-
-
-
-
-
-
 
             while (!get_iteration(rfmhandle, &localcurrentcycle) && elapsedTimeTicks < timeOutTicks && !notRunning) {
 
@@ -1186,11 +1162,8 @@ ErrorManagement::ErrorType RFM2g::Execute(ExecutionInfo &info) {
              REPORT_ERROR(ErrorManagement::Information, "Slave counter= %d",counterAndTimer[0]);
              #endif
              */
+
             if (localcurrentcycle > counter && !notRunning) {
-
-
-
-
 
                 localCounter += localcurrentcycle - counter;
                 counter = localcurrentcycle;
@@ -1207,8 +1180,6 @@ ErrorManagement::ErrorType RFM2g::Execute(ExecutionInfo &info) {
 
                     (void) fastMuxRFM.FastLock(TTInfiniteWait, 0.);
 
-                    counterEmbedded++;
-
                     Write(info);
 
                     fastMuxRFM.FastUnLock();
@@ -1220,17 +1191,10 @@ ErrorManagement::ErrorType RFM2g::Execute(ExecutionInfo &info) {
 
 #endif
 
-                    //Questa parte qui andrebbe tolta nella nuova implementazione
-                    localCounter = localCounter - downsamplefactor;
-                    ///
+                    counter = (localcurrentcycle / downsamplefactor) * downsamplefactor;
+                    localCounter = 0u;
 
-                    ///nuova parte aggiunta
-
-                   alignCounter=true;
-
-                    ///
-
-
+                    counterEmbedded = counter / downsamplefactor;
 
                     startTicksTimeOut = HighResolutionTimer::Counter();
 

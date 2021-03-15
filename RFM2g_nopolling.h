@@ -29,45 +29,45 @@
  *
  *
  *         +RFM = {
-            Class = RFM2g
-            ExecutionMode = RealTimeThread //Optional. If not set ExecutionMode = IndependentThread. If ExecutionMode == IndependentThread a thread is spawned to generate the time events. ExecutionMode == RealTimeThread the time is generated in the context of the real-time thread.
-            CPUMask = 0x8//Optional and only relevant if ExecutionMode=IndependentThread
-            Device = /dev/rfm2g0// Mandatory, the Linux device handling the RFM card installed on the system
-            MasterStepMaxRetries=100//Optional and only relevant for Master. Default 100
-            ReadOffset = 4096// Mandatory, the offset in bytes of the read starting point in the RF memory
-            WriteOffset = 4096// Mandatory, the offset in bytes of the write starting point in the RF memory (Rmember: aways start after 4096)
+ Class = RFM2g
+ ExecutionMode = RealTimeThread //Optional. If not set ExecutionMode = IndependentThread. If ExecutionMode == IndependentThread a thread is spawned to generate the time events. ExecutionMode == RealTimeThread the time is generated in the context of the real-time thread.
+ CPUMask = 0x8//Optional and only relevant if ExecutionMode=IndependentThread
+ Device = /dev/rfm2g0// Mandatory, the Linux device handling the RFM card installed on the system
+ MasterStepMaxRetries=100//Optional and only relevant for Master. Default 100
+ ReadOffset = 4096// Mandatory, the offset in bytes of the read starting point in the RF memory
+ WriteOffset = 4096// Mandatory, the offset in bytes of the write starting point in the RF memory (Rmember: aways start after 4096)
 
-            UseDMA = 1// Optional, if 1 data exchange will be performed using DMA, if 0 with programmed IO. Default = 0
-            DMABufferAddress = 0x1f3600000//0x3aec00000 // Required if UseDMA=1, physical address (BEWARE, NOT VIRTUAL, i.e. coming from cat /proc/iomem) of the kernel reserved DMA memory buffer (see node (1))
-            WaitDMA = 1// Required if UseDMA=1, if 0 the DataSource launches DMA read/write transactions without waiting for them to be completed. If 1 it waits for them. (see node (2))
-            DMABufferSize = 4096// The DMA buffer size
-            DMAThreshold = 32// The DMA threshold after which DMA must be used (bytes)
+ UseDMA = 1// Optional, if 1 data exchange will be performed using DMA, if 0 with programmed IO. Default = 0
+ DMABufferAddress = 0x1f3600000//0x3aec00000 // Required if UseDMA=1, physical address (BEWARE, NOT VIRTUAL, i.e. coming from cat /proc/iomem) of the kernel reserved DMA memory buffer (see node (1))
+ WaitDMA = 1// Required if UseDMA=1, if 0 the DataSource launches DMA read/write transactions without waiting for them to be completed. If 1 it waits for them. (see node (2))
+ DMABufferSize = 4096// The DMA buffer size
+ DMAThreshold = 32// The DMA threshold after which DMA must be used (bytes)
 
-            //Synchronizing = 0 // Optional, if 1 the DataSource synchronizes the calling thread using SPC synchronization protocol, if 0 it doesn't synchronize and only exchanges data. Default = 0
-            //BasePeriod = 1e-4 // Required if Synchronizing=1, the base period of the RFM synchronization clock (coming from the RFM master mode)
-            DownSampleFactor = 1// Required if Synchronizing=1, the downsample factor for synchronization strobes
-            StartTime = 0// Required if Synchronizing=1, the start time at which the DataSource will begin to synchronize
+ //Synchronizing = 0 // Optional, if 1 the DataSource synchronizes the calling thread using SPC synchronization protocol, if 0 it doesn't synchronize and only exchanges data. Default = 0
+ //BasePeriod = 1e-4 // Required if Synchronizing=1, the base period of the RFM synchronization clock (coming from the RFM master mode)
+ DownSampleFactor = 1// Required if Synchronizing=1, the downsample factor for synchronization strobes
+ StartTime = 0// Required if Synchronizing=1, the start time at which the DataSource will begin to synchronize
 
-            Master = 1// Optional, if 1 the node is the RFM synchronizing node, i.e. sends the system time around the RFM ring. Default = 0. Note that one and only one master must be defined!
-            InitRunTime =0// 1000000
+ Master = 1// Optional, if 1 the node is the RFM synchronizing node, i.e. sends the system time around the RFM ring. Default = 0. Note that one and only one master must be defined!
+ InitRunTime =0// 1000000
 
-            NumberOfHosts=3// Mandatory. Number of host on the RFM
-            TimeOut=20// Optional.  Time out (in microseconds) to wait for hosts writing operations. Dafault is 1 second (i.e., 1000000)
+ NumberOfHosts=3// Mandatory. Number of host on the RFM
+ TimeOut=20// Optional.  Time out (in microseconds) to wait for hosts writing operations. Dafault is 1 second (i.e., 1000000)
 
-            NodeIdNumber=0//Required. For the master always NodeIdNumber=0. For the slaves, a consecutive exclusive integer number, from 1 to ... NumberOfHosts-1
+ NodeIdNumber=0//Required. For the master always NodeIdNumber=0. For the slaves, a consecutive exclusive integer number, from 1 to ... NumberOfHosts-1
 
 
 
-            Signals = {
-                Counter = {Type = uint32}
-                Time = {Type = uint32}
-                InputBuffer = {Type = uint8 NumberOfElements = 1200}  //RR
-                OutputBuffer = {Type = uint8 NumberOfElements =400}   //RR
-                RealTime = {Type = float64}
-                Counters = {Type = uint8 NumberOfElements = 12}
-                Diagnostics = {Type = uint8 NumberOfElements = 12}
-            }
-        }
+ Signals = {
+ Counter = {Type = uint32}
+ Time = {Type = uint32}
+ InputBuffer = {Type = uint8 NumberOfElements = 1200}  //RR
+ OutputBuffer = {Type = uint8 NumberOfElements =400}   //RR
+ RealTime = {Type = float64}
+ Counters = {Type = uint8 NumberOfElements = 12}
+ Diagnostics = {Type = uint8 NumberOfElements = 12}
+ }
+ }
  *
  *
  *
@@ -102,11 +102,9 @@
 /*                        Project header includes                            */
 /*---------------------------------------------------------------------------*/
 
-
 #define RFM_TRIG_OFFSET      3*sizeof(int)
 #define RFM_ITERATION_OFFSET 0
 #define RFM_TIME_OFFSET      1*sizeof(int)
-
 
 //here the structure that packs a single host protocol information
 struct HostCounterProcInfo {
@@ -116,16 +114,12 @@ struct HostCounterProcInfo {
     MARTe::uint32 hostDownsamplefactor;
 };
 
-
 //here the structure that contains a single host read mapping info
 struct HostReadMappingInfo {
 
     RFM2G_UINT32 hostToReadOffset;
     RFM2G_UINT32 hostToReadSize;
 };
-
-
-
 
 //here the start of the RFM reserved space for the diangostic counter protocol
 #define RFM_START_PROTOCOL      64
@@ -375,39 +369,31 @@ public:CLASS_REGISTER_DECLARATION()
      */
     bool SetDiagnosticOwnData();
 
-
     /**
      * @brief check if the RFM allocation of the master and all the hosts is contiguous, i.e, there are no holes in the memory segment
      * @return true if the allocation is contiguous and all the hosts writes according to the order given by their NodeIdNumber. Otherwise return false
      */
     bool CheckMemoryContiguity();
 
-
     /**
      * @brief set the information of the other hosts from RFM to implement the diagnostic counter protocol
      */
     ErrorManagement::ErrorType SetInitialInfo();
 
-
     /**
-       * @brief do a re-mapping of the RFM writing regions taking into account the counter for each host
-       */
+     * @brief do a re-mapping of the RFM writing regions taking into account the counter for each host
+     */
     ErrorManagement::ErrorType InternalRFMRemapping();
 
-
     /**
-        * @brief computes the remapped size to be read (the sum of the size to be read of all the hosts from initialHostToRead until finalHostToRead plus the counters)
-        */
+     * @brief computes the remapped size to be read (the sum of the size to be read of all the hosts from initialHostToRead until finalHostToRead plus the counters)
+     */
     ErrorManagement::ErrorType inputSizeRemapping();
 
-
     /**
-           * @brief launch the functions: SetInitialInfo; InternalRFMRemapping; inputSizeRemapping so as to set the diagnostic counter protocol
-           */
+     * @brief launch the functions: SetInitialInfo; InternalRFMRemapping; inputSizeRemapping so as to set the diagnostic counter protocol
+     */
     ErrorManagement::ErrorType SettingDiagnosticProtocol();
-
-
-
 
     ErrorManagement::ErrorType StopLLC();
 
@@ -593,7 +579,6 @@ private:
      */
     int32 *hostsFlags;
 
-
     /**
      * number of microseconds to wait for the timeout
      */
@@ -621,13 +606,10 @@ private:
      */
     HostCounterProcInfo *hostsProtocolInfo;
 
-
     /**
-       * pointer to reading info of the hosts to be read
-       */
-    HostReadMappingInfo* hostsToReadInfo;
-
-
+     * pointer to reading info of the hosts to be read
+     */
+    HostReadMappingInfo *hostsToReadInfo;
 
     /**
      * host number of the first host to be read
@@ -639,37 +621,29 @@ private:
      */
     int32 finalHostToRead;
 
-
-
     /**
-       * inputsize taking into account the size of all the hosts to be read, from  initialHostToRead until finalHostToRead and all their the counters
-       */
+     * inputsize taking into account the size of all the hosts to be read, from  initialHostToRead until finalHostToRead and all their the counters
+     */
     RFM2G_UINT32 inputsizeRemapped;
 
+    /**
+     * vector containing the counters of the hosts read (from the RFM reading operation)
+     * These counters will be used to compute the diagnostic data
+     */
+    int32 *counterRead;
 
     /**
-          * vector containing the counters of the hosts read (from the RFM reading operation)
-          * These counters will be used to compute the diagnostic data
-          */
-     int32* counterRead;
+     * vector containing the diagnostic information for checking if the data is outdated and/or cycles have been lost
+     * The diagnosticData is an optional output of the RFM
+     */
+    float32 *diagnosticData;
 
     /**
-         * vector containing the diagnostic information for checking if the data is outdated and/or cycles have been lost
-         * The diagnosticData is an optional output of the RFM
-         */
-    float32* diagnosticData;
-
-
-    /**
-         * vector containing the ratio of each of the downsamplefactor of the other hosts over the downsamplefactor of this host
-         * The ratio is used in the function EvaluateDiagnostcData().
-         * The diagnosticRatio is an optional output of the RFM
-         */
-    float32* diagnosticRatio;
-
-
-
-
+     * vector containing the ratio of each of the downsamplefactor of the other hosts over the downsamplefactor of this host
+     * The ratio is used in the function EvaluateDiagnostcData().
+     * The diagnosticRatio is an optional output of the RFM
+     */
+    float32 *diagnosticRatio;
 
     /**
      * Semaphore to manage the buffer indexes.
@@ -686,67 +660,50 @@ private:
      * SPC synch protocol until MARTe migration
      */
 
-
-
-
     /**
-        * @brief Initialize the vector hostsToReadInfo at null values
-        * @details First the vector hostsToReadInfo is dynamically allocated with the number of hosts and then it is initialized
-        * @return true
-        */
+     * @brief Initialize the vector hostsToReadInfo at null values
+     * @details First the vector hostsToReadInfo is dynamically allocated with the number of hosts and then it is initialized
+     * @return true
+     */
     bool InitializeHostsToReadInfo();
 
-
+    /**
+     * @brief Initialize the vector counterRead at null values
+     * @details First the vector counterRead is dynamically allocated with the number of hosts and then it is initialized
+     * @return true
+     */
+    bool InitializeCounterRead();
 
     /**
-         * @brief Initialize the vector counterRead at null values
-         * @details First the vector counterRead is dynamically allocated with the number of hosts and then it is initialized
-         * @return true
-         */
-     bool InitializeCounterRead();
-
-    /**
-        * @brief Initialize the vector diagnosticData at null values
-        * @details First the vector diagnosticData is dynamically allocated with the number of hosts and then it is initialized
-        * @return true
-        */
+     * @brief Initialize the vector diagnosticData at null values
+     * @details First the vector diagnosticData is dynamically allocated with the number of hosts and then it is initialized
+     * @return true
+     */
     bool InitializeDiagnosticData();
 
-
-
     /**
-          * @brief Initialize the vector diagnosticRatio at null values
-          * @details First the vector diagnosticRatio is dynamically allocated with the number of hosts and then it is initialized
-          * @return true
-          */
+     * @brief Initialize the vector diagnosticRatio at null values
+     * @details First the vector diagnosticRatio is dynamically allocated with the number of hosts and then it is initialized
+     * @return true
+     */
     bool InitializeDiagnosticRatio();
 
-
-
-
-
     /**
-              * @brief computes the vector of diagnosticRatio
-              * @details The value is computed performing, for each host actually read, the ratio among its downsamplefactor and the
-              *  downsamplefactor of this host.
-              *  The vector diagnosticRatio is used in the function EvaluateDiagnostcData();
-              */
+     * @brief computes the vector of diagnosticRatio
+     * @details The value is computed performing, for each host actually read, the ratio among its downsamplefactor and the
+     *  downsamplefactor of this host.
+     *  The vector diagnosticRatio is used in the function EvaluateDiagnostcData();
+     */
     void EvaluateDiagnostcRatio();
 
-
-
-
     /**
-          * @brief computes the vector of diagnosticData
-          * @details The value is computed performing, for each host that is actually read, the comparison
-          * by the own counter (the one of this host) and the host counter (scaled with the downsamplefactor ration) of the other hosts.
-          * If the value is positive, the other host data is old (an it is older than the downsamplefactor ratio, than it is outdated).
-          * Conversely, if the value is negative, than this host is delayed.
-          */
-   void EvaluateDiagnostcData();
-
-
-
+     * @brief computes the vector of diagnosticData
+     * @details The value is computed performing, for each host that is actually read, the comparison
+     * by the own counter (the one of this host) and the host counter (scaled with the downsamplefactor ration) of the other hosts.
+     * If the value is positive, the other host data is old (an it is older than the downsamplefactor ratio, than it is outdated).
+     * Conversely, if the value is negative, than this host is delayed.
+     */
+    void EvaluateDiagnostcData();
 
     /**
      * @brief Get the current value of the iteration counter
@@ -800,13 +757,10 @@ private:
      */
     ErrorManagement::ErrorType Write(ExecutionInfo &info);
 
-
-
     /**
-         * @brief this function remap the read data into the memory pointed by pInputBuffer
-         */
+     * @brief this function remap the read data into the memory pointed by pInputBuffer
+     */
     void readRemapping();
-
 
     /**
      * First synchronization happened
@@ -818,14 +772,9 @@ private:
      */
     int32 currentcycle;
 
-
-
     int32 counter;
 
-    bool alignCounter; // parte nuova aggiunta
-
-    int32 localcurrentcycle;  // parte nuova aggiunta
-
+    int32 localcurrentcycle;
 
     int32 period;
 
