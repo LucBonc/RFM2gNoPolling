@@ -797,8 +797,10 @@ bool RFM2g::SetConfiguredDatabase(StructuredDataI &data) {
 
     if (ok) {
 
-        ok = SetDiagnosticOwnData();
 
+        (void) fastMuxRFM.FastLock(TTInfiniteWait, 0.);  //multithread
+        ok = SetDiagnosticOwnData();
+        fastMuxRFM.FastUnLock();
     }
 
     REPORT_ERROR(ErrorManagement::Information, "Input  buffer length %d, starting at %d", inputsize, readoffset);
@@ -1182,7 +1184,7 @@ ErrorManagement::ErrorType RFM2g::Execute(ExecutionInfo &info) {
 
                     Write(info);
 
-                    fastMuxRFM.FastUnLock();
+                   fastMuxRFM.FastUnLock();
 
 #ifdef _DEBUG
 
@@ -1205,9 +1207,9 @@ ErrorManagement::ErrorType RFM2g::Execute(ExecutionInfo &info) {
 
                     RFM2gPeek32(rfmhandle, RFM_TIME_OFFSET, (RFM2G_UINT32*) &(counterAndTimer[1]));
 
-                    //(void) fastMuxRFM.FastLock(TTInfiniteWait, 0.);
+                   // (void) fastMuxRFM.FastLock(TTInfiniteWait, 0.); //commentare
                     Read(info);
-                    // fastMuxRFM.FastUnLock();
+                    //fastMuxRFM.FastUnLock(); //commentare
 #ifdef _DEBUG
 
                 REPORT_ERROR(ErrorManagement::Information, "the slave has red");
@@ -1775,6 +1777,9 @@ ErrorManagement::ErrorType RFM2g::SettingDiagnosticProtocol() {
 
     ErrorManagement::ErrorType err;
 
+
+
+
     err = SetInitialInfo();
 
     if (!err.fatalError) {
@@ -1796,6 +1801,9 @@ ErrorManagement::ErrorType RFM2g::SettingDiagnosticProtocol() {
     else {
         REPORT_ERROR(ErrorManagement::FatalError, "Failed to set the diagnostic protocol");
     }
+
+
+
 
     return err;
 
