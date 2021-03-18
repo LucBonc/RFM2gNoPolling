@@ -1207,9 +1207,9 @@ ErrorManagement::ErrorType RFM2g::Execute(ExecutionInfo &info) {
 
                     RFM2gPeek32(rfmhandle, RFM_TIME_OFFSET, (RFM2G_UINT32*) &(counterAndTimer[1]));
 
-                   // (void) fastMuxRFM.FastLock(TTInfiniteWait, 0.); //commentare
+                   // (void) fastMuxRFM.FastLock(TTInfiniteWait, 0.);
                     Read(info);
-                    //fastMuxRFM.FastUnLock(); //commentare
+                    //fastMuxRFM.FastUnLock();
 #ifdef _DEBUG
 
                 REPORT_ERROR(ErrorManagement::Information, "the slave has red");
