@@ -31,6 +31,8 @@ Additional Configuration options respect SPC version of DataSource:
 * The NodeIdNumber shall be 0 for master and 1,2,3....for slaves. The nodeIdNumber must be consecutive
 * The the rfm memory shall be mapped continuosly woth respect to all the hosts (0,1,2...) according to the NodeIdNumber. Each host has its own write piece of memory on the rfm devices, using appropriate writes offsets (>4096).
 * The hosts readoffsets can start from any address in the range of the writes one, according to the total dimensions.
+* <b>new!!! if  master=0 and frequency is not specified for the Time signal of the RFMInput the slave will be asynch</b>
+
 
 * The DataSource adds the following output signals:
   1. RealTime measured used tsc Counter, using the MARTe2 default frequency found in /proc/cpuinfo (not the tsc calibrated one), the tsc offset is taken at the first cycle
