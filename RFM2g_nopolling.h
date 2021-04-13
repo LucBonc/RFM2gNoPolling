@@ -312,6 +312,35 @@ public:CLASS_REGISTER_DECLARATION()
     virtual const char8* GetBrokerName(StructuredDataI &data,
                                        const SignalDirection direction);
 
+
+
+
+    /**
+     * @brief See DataSourceI::GetInputBrokers.
+     * @details
+     * @return When the broker is RFMAsynchSlaveInputBroker it call the broker init passing the RFM R/W lock pointer.
+     * Otherwise, it calls the standard GetInputBrokers
+     */
+    bool GetInputBrokers(ReferenceContainer &inputBrokers,
+                                    const char8 * const functionName,
+                                    void * const gamMemPtr);
+
+
+
+    /**
+     * @brief See DataSourceI::GetOutputBrokers.
+     * @details
+     * @return When the broker is RFMAsynchSlaveOutputBroker it call the broker init passing the RFM R/W lock pointer.
+     * Otherwise, it calls the standard GetOutputBrokers
+     */
+    bool GetOutputBrokers(ReferenceContainer &outputBrokers,
+                                     const char8 * const functionName,
+                                     void * const gamMemPtr);
+
+
+
+
+
     /**
      * @brief Waits on an EventSem for the right RFM cycle
      * @return true if the semaphore is successfully posted.
@@ -423,6 +452,14 @@ private:
      * True if this a synchronising data source
      */
     bool synchronising;
+
+    /**
+     * True if this ia a not synchronising data source
+     * (NOTE: notsynchronising will be equal to !synchronising. The redundancy is exploited GetBrokerName
+     * to discover is the thread is not synchronising via cheching the field "Frequency" in the signal Time)
+     */
+    bool notsynchronising;
+
 
     /**
      * The affinity of the thread that asynchronously generates the time.
@@ -649,6 +686,14 @@ private:
      * Semaphore to manage the buffer indexes.
      */
     FastPollingMutexSem fastMux;
+
+
+    /**
+     * Semaphore to manage the read and write operations with asynchronous slave.
+     */
+    FastPollingMutexSem fastMuxRW;
+
+
 
     /**
      * Number of RFM instances. It is used to avoid to create the fastMuxRFM more than one time

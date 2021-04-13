@@ -22,7 +22,7 @@
 #
 #############################################################
 
-OBJSX=RFM2g_nopolling.x
+OBJSX=RFM2g_nopolling.x RFMAsynchSlaveInputBroker.x RFMAsynchSlaveOutputBroker.x
 
 PACKAGE=Components/DataSources
 ROOT_DIR=../../../../

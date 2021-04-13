@@ -41,6 +41,8 @@
 #include "Threads.h"
 #include "EmbeddedThreadI.h"
 #include "CLASSMETHODREGISTER.h"
+#include "RFMAsynchSlaveInputBroker.h"
+#include "RFMAsynchSlaveOutputBroker.h"
 
 #include "stdio.h"
 #include "signal.h"
@@ -77,6 +79,7 @@ RFM2g::RFM2g() :
     counterAndTimer[0] = 0u;
     counterAndTimer[1] = 0u;
     synchronising = false;
+    notsynchronising = false;
     executionMode = 0u;
     device = "/dev/null";
     readoffset = 0u;
@@ -607,6 +610,7 @@ bool RFM2g::Initialise(StructuredDataI &data) {
 
     if (ok) {
         fastMux.Create();
+        fastMuxRW.Create();
     }
 
     return ok;
@@ -615,12 +619,37 @@ bool RFM2g::Initialise(StructuredDataI &data) {
 
 bool RFM2g::SetConfiguredDatabase(StructuredDataI &data) {
     bool ok = DataSourceI::SetConfiguredDatabase(data);
+
+    StreamString signalName0;
+
+    StreamString signalName1;
+
     /*if (ok) {
      ok = (GetNumberOfSignals() == 4u);
      }
      if (!ok) {
      REPORT_ERROR(ErrorManagement::ParametersError, "Exactly four signals shall be configured");
      }*/
+
+    if (ok) {
+        ok = GetSignalName(0u, signalName0);
+
+        if (!ok) {
+            REPORT_ERROR(ErrorManagement::ParametersError, "Cannot get the first signal name");
+        }
+
+        if (ok) {
+
+            ok = (signalName0 == "Counter") || (signalName0 == "Time");
+
+        }
+
+        if (!ok) {
+            REPORT_ERROR(ErrorManagement::ParametersError, "The first two signals must be either Counter and Time or Time and Counter");
+        }
+
+    }
+
     if (ok) {
         ok = (GetSignalType(0u).numberOfBits == 32u);
         if (!ok) {
@@ -636,6 +665,30 @@ bool RFM2g::SetConfiguredDatabase(StructuredDataI &data) {
             REPORT_ERROR(ErrorManagement::ParametersError, "The first signal shall be SignedInteger type");
         }
     }
+
+    if (ok) {
+        ok = (GetSignalName(1u, signalName1));
+
+        if (!ok) {
+            REPORT_ERROR(ErrorManagement::ParametersError, "Cannot get the second signal name");
+        }
+
+        if (ok) {
+
+            bool ok1 = (signalName1 == "Counter") || (signalName1 == "Time");
+
+            bool ok2 = (signalName0 != signalName1);
+
+            ok = ok1 && ok2;
+
+        }
+
+        if (!ok) {
+            REPORT_ERROR(ErrorManagement::ParametersError, "The first two signals must be either Counter and Time or Time and Counter");
+        }
+
+    }
+
     if (ok) {
         ok = (GetSignalType(1u).numberOfBits == 32u);
         if (!ok) {
@@ -786,8 +839,8 @@ bool RFM2g::SetConfiguredDatabase(StructuredDataI &data) {
     }
 
     if (!master && !synchronising && executionMode == RFM2G_EXEC_MODE_SPAWNED) {
-        REPORT_ERROR(ErrorManagement::ParametersError, "RFM2g in not master mode and not synchronizing spawned isn't implemented yet");
-        ok = false;
+        REPORT_ERROR(ErrorManagement::ParametersError, "RFM2g in not master mode with not synchronizing. Execution mode is spawned");
+        ok = true;
     }
 
     if (master && executionMode == RFM2G_EXEC_MODE_SPAWNED) {
@@ -796,7 +849,6 @@ bool RFM2g::SetConfiguredDatabase(StructuredDataI &data) {
     }
 
     if (ok) {
-
 
         (void) fastMuxRFM.FastLock(TTInfiniteWait, 0.);  //multithread
         ok = SetDiagnosticOwnData();
@@ -850,8 +902,10 @@ bool RFM2g::GetSignalMemoryBuffer(const uint32 signalIdx,
 
 const char8* RFM2g::GetBrokerName(StructuredDataI &data,
                                   const SignalDirection direction) {
+
     const char8 *brokerName = NULL_PTR(const char8 *);
-    float32 frequency = 0.F;
+
+    const char8 *nameNode = data.GetName();
 
     /* If there is a signals with the Frequency attribute set,
      the DataSource becomes synchronizing
@@ -859,15 +913,58 @@ const char8* RFM2g::GetBrokerName(StructuredDataI &data,
      add functions (GetInputBrokers, GetOutputBrokers)
      will put the Frequency defined broker in first position */
 
-    if (!data.Read("Frequency", frequency)) {
-        frequency = -1.F;
-    }
-    else
-        period = (1.e6 / frequency);
+    if ((direction == InputSignals) && !(synchronising || notsynchronising)) {
 
-    if (frequency > 0.F) {
-        synchronising = true;
+        uint32 i;
+        float32 frequency = 0.F;
+
+        data.MoveToAncestor(1u);
+
+        REPORT_ERROR(ErrorManagement::Information, "Node name: %s", data.GetName());
+
+        uint32 nOfChildren = data.GetNumberOfChildren(); //this creates a problem since it considers one signal more than the ones appearing in the gam (it seems it takes them from te Datasource). For this reason, the second for loop in what follows crashes.
+
+        nOfChildren = 2; //to avoid the problem before, we consider 2 children since in the SetConfiguredDatabase we force the first two signals being Counter and Time or Time and Counter. This, combined with the fact that in order to assign the broker the signals are checked in order (starting from signal 0), allows to avoid the problem
+
+        for (i = 0; (i < nOfChildren) && !synchronising; i++) {
+            data.MoveToChild(i);
+
+            if (data.Read("Frequency", frequency)) {
+
+                if (frequency > 0.F) {
+                    synchronising = true;
+                    period = (1.e6 / frequency);
+                }
+
+            }
+
+            data.MoveToAncestor(1u);
+
+        }
+
+        if (!synchronising) {
+            notsynchronising = true;
+
+        }
+
+        //here we restore data to the signal at the beginning of the GetBrokerName function
+
+        bool stopMoving = false;
+        for (i = 0; (i < nOfChildren) && !stopMoving; i++) {
+
+            data.MoveToChild(i);
+            if (data.GetName() == nameNode) {
+                stopMoving = true;
+            }
+            else {
+                data.MoveToAncestor(1u);
+            }
+
+        }
+
     }
+
+
 
     // See the broker configuration table in RFM2g.h
     if (master) {
@@ -889,19 +986,51 @@ const char8* RFM2g::GetBrokerName(StructuredDataI &data,
             }
         }
         else {
+
             if (direction == InputSignals) {
-                brokerName = "MemoryMapInputBroker";
+                brokerName = "RFMAsynchSlaveInputBroker";
             }
             else {
-                brokerName = "MemoryMapAsyncOutputBroker";
+                brokerName = "RFMAsynchSlaveOutputBroker";
             }
+
         }
     }
+
+    REPORT_ERROR(ErrorManagement::Information, "Installing broker= %s", brokerName);
 
     return brokerName;
 }
 
+bool RFM2g::GetInputBrokers(ReferenceContainer &inputBrokers,
+                            const char8 *const functionName,
+                            void *const gamMemPtr) {
+
+    bool ok = true;
+
+    if (!synchronising && !master) {
+
+        ReferenceT<RFMAsynchSlaveInputBroker> broker(new RFMAsynchSlaveInputBroker);
+        ok = broker.IsValid();
+        if (ok) {
+            ok = broker->Init(InputSignals, *this, functionName, gamMemPtr, &fastMuxRW);
+        }
+        if (ok) {
+            ok = inputBrokers.Insert(broker);
+        }
+
+    }
+    else {
+        ok = DataSourceI::GetInputBrokers(inputBrokers, functionName, gamMemPtr);
+    }
+
+    return ok;
+}
+
 bool RFM2g::Synchronise() {
+
+//    REPORT_ERROR(ErrorManagement::Information, "I am in the synchronise");
+
     ErrorManagement::ErrorType err = ErrorManagement::NoError;
 
     if (!master) {
@@ -921,13 +1050,14 @@ bool RFM2g::Synchronise() {
      */
 
     if (executionMode == RFM2G_EXEC_MODE_SPAWNED) {
-        //	bool notRunning = ( EmbeddedThreadI::RunningState);
+        if (synchronising) {
+            //	bool notRunning = ( EmbeddedThreadI::RunningState);
 //	if(!notRunning)
-        if (executor.GetStatus() == EmbeddedThreadI::RunningState)
-            err = synchSem.ResetWait(TTInfiniteWait);
+            if (executor.GetStatus() == EmbeddedThreadI::RunningState)
+                err = synchSem.ResetWait(TTInfiniteWait);
 
-        else
-            err = synchSem.ResetWait(1000);
+            else
+                err = synchSem.ResetWait(1000);
 
 #ifdef _DEBUG
 
@@ -935,6 +1065,7 @@ bool RFM2g::Synchronise() {
 
 
 #endif
+        }
 
     }
     else {
@@ -956,9 +1087,12 @@ bool RFM2g::Synchronise() {
     }
 
     if (!master) {
+
+        (void) fastMux.FastLock(TTInfiniteWait, 0.);
         if (counterAndTimer[0] != counterEmbedded) {
             counterAndTimer[0] = counterEmbedded;
         }
+        fastMux.FastUnLock();
     }
 
     /*
@@ -970,6 +1104,33 @@ bool RFM2g::Synchronise() {
 }
 
 /*lint -e{715}  [MISRA C++ Rule 0-1-11], [MISRA C++ Rule 0-1-12]. Justification: the counter and the timer are always reset irrespectively of the states being changed.*/
+bool RFM2g::GetOutputBrokers(ReferenceContainer &outputBrokers,
+                             const char8 *const functionName,
+                             void *const gamMemPtr) {
+
+    bool ok = true;
+
+    if (!synchronising && !master) {
+
+        ReferenceT<RFMAsynchSlaveOutputBroker> broker(new RFMAsynchSlaveOutputBroker);
+        ok = broker.IsValid();
+        if (ok) {
+            ok = broker->Init(OutputSignals, *this, functionName, gamMemPtr, &fastMuxRW);
+        }
+        if (ok) {
+            ok = outputBrokers.Insert(broker);
+        }
+
+    }
+    else
+
+    {
+        ok = DataSourceI::GetOutputBrokers(outputBrokers, functionName, gamMemPtr);
+    }
+
+    return ok;
+}
+
 bool RFM2g::PrepareNextState(const char8 *const currentStateName,
                              const char8 *const nextStateName) {
     bool ok = true;
@@ -1019,6 +1180,7 @@ bool RFM2g::PrepareNextState(const char8 *const currentStateName,
         else {
             REPORT_ERROR(ErrorManagement::Warning, "RFM cycle counter zeroed, RFM time set to %d", initruntime);
         }
+
     }
 
     return ok;
@@ -1100,37 +1262,35 @@ ErrorManagement::ErrorType RFM2g::Execute(ExecutionInfo &info) {
 
     else {  //here starts the slave execute
 
-        if (synchronising) {
+        if (executionMode != RFM2G_EXEC_MODE_SPAWNED) {
+            err = ErrorManagement::NotCompleted;
+        }
 
-            if (executionMode != RFM2G_EXEC_MODE_SPAWNED) {
-                err = ErrorManagement::NotCompleted;
-            }
+        bool notRunning = false;
 
-            bool notRunning = false;
+        //check if the counter is outside the maximum number of cycles
+        (void) fastMux.FastLock(TTInfiniteWait, 0.);
 
-            //check if the counter is outside the maximum number of cycles
-            (void) fastMux.FastLock(TTInfiniteWait, 0.);
-
-            if (counterAndTimer[0] + 1 > cycles) {
-                if (!termmsgsent) {
-                    ReferenceT < Message > termMessage = Get(0);
-                    if (termMessage.IsValid()) {
-                        REPORT_ERROR(ErrorManagement::Information, "Sending termination message");
-                        SendMessage(termMessage, this);
-                    }
-                    termmsgsent = true;
+        if (counterAndTimer[0] + 1 > cycles) {
+            if (!termmsgsent) {
+                ReferenceT < Message > termMessage = Get(0);
+                if (termMessage.IsValid()) {
+                    REPORT_ERROR(ErrorManagement::Information, "Sending termination message");
+                    SendMessage(termMessage, this);
                 }
-                Sleep::Sec(1);
-                REPORT_ERROR(ErrorManagement::Information, "Max Number of cycles Reached");
+                termmsgsent = true;
             }
-            fastMux.FastUnLock();
+            Sleep::Sec(1);
+            REPORT_ERROR(ErrorManagement::Information, "Max Number of cycles Reached");
+        }
+        fastMux.FastUnLock();
 
 //in case of spawned thread, check if a termination message has been received
-            if (executionMode == RFM2G_EXEC_MODE_SPAWNED) {
-                EmbeddedThreadI::States status;
-                status = executor.GetStatus();
-                notRunning = (status != EmbeddedThreadI::RunningState);
-            }
+        if (executionMode == RFM2G_EXEC_MODE_SPAWNED) {
+            EmbeddedThreadI::States status;
+            status = executor.GetStatus();
+            notRunning = (status != EmbeddedThreadI::RunningState);
+        }
 
 #ifdef _DEBUG
 
@@ -1140,15 +1300,16 @@ ErrorManagement::ErrorType RFM2g::Execute(ExecutionInfo &info) {
 
 // the slave gets the current iteration from the RFM
 
-            uint64 elapsedTimeTicks = 0u;
-            uint64 startTicksTimeOut = HighResolutionTimer::Counter();
-            if (counter == 0)
-                realTimeOffset = HighResolutionTimer::Counter();
+        uint64 elapsedTimeTicks = 0u;
+        uint64 startTicksTimeOut = HighResolutionTimer::Counter();
+        if (counter == 0)
+            realTimeOffset = HighResolutionTimer::Counter();
 
-            while (!get_iteration(rfmhandle, &localcurrentcycle) && elapsedTimeTicks < timeOutTicks && !notRunning) {
+        while (!get_iteration(rfmhandle, &localcurrentcycle) && elapsedTimeTicks < timeOutTicks && !notRunning) {
 
-                elapsedTimeTicks = HighResolutionTimer::Counter() - startTicksTimeOut;
-            }
+            elapsedTimeTicks = HighResolutionTimer::Counter() - startTicksTimeOut;
+
+        }
 
 #ifdef _DEBUG
             if (elapsedTimeTicks >= timeOutTicks && !notRunning) {
@@ -1157,18 +1318,18 @@ ErrorManagement::ErrorType RFM2g::Execute(ExecutionInfo &info) {
 
 #endif
 
-            /*
-             #ifdef _DEBUG
+        /*
+         #ifdef _DEBUG
 
-             REPORT_ERROR(ErrorManagement::Information, "Counter received from the master= %d",localcurrentcycle);
-             REPORT_ERROR(ErrorManagement::Information, "Slave counter= %d",counterAndTimer[0]);
-             #endif
-             */
+         REPORT_ERROR(ErrorManagement::Information, "Counter received from the master= %d",localcurrentcycle);
+         REPORT_ERROR(ErrorManagement::Information, "Slave counter= %d",counterAndTimer[0]);
+         #endif
+         */
 
-            if (localcurrentcycle > counter && !notRunning) {
+        if (localcurrentcycle > counter && !notRunning) {
 
-                localCounter += localcurrentcycle - counter;
-                counter = localcurrentcycle;
+            localCounter += localcurrentcycle - counter;
+            counter = localcurrentcycle;
 
 #ifdef _DEBUG
 
@@ -1176,15 +1337,15 @@ ErrorManagement::ErrorType RFM2g::Execute(ExecutionInfo &info) {
                 REPORT_ERROR(ErrorManagement::Information, "Slave localCounter= %d",localCounter);
 #endif
 
-                //this is the case when the slave must write/read (according to the downsample factor)
-                if (localCounter >= downsamplefactor) {
-                    realTime = (HighResolutionTimer::Counter() - realTimeOffset) * HighResolutionTimer::Period();
+            //this is the case when the slave must write/read (according to the downsample factor)
+            if (localCounter >= downsamplefactor) {
+                realTime = (HighResolutionTimer::Counter() - realTimeOffset) * HighResolutionTimer::Period();
 
-                    (void) fastMuxRFM.FastLock(TTInfiniteWait, 0.);
+                (void) fastMuxRFM.FastLock(TTInfiniteWait, 0.);
 
-                    Write(info);
+                Write(info);
 
-                   fastMuxRFM.FastUnLock();
+                fastMuxRFM.FastUnLock();
 
 #ifdef _DEBUG
 
@@ -1193,23 +1354,26 @@ ErrorManagement::ErrorType RFM2g::Execute(ExecutionInfo &info) {
 
 #endif
 
-                    counter = (localcurrentcycle / downsamplefactor) * downsamplefactor;
-                    localCounter = 0u;
+                counter = (localcurrentcycle / downsamplefactor) * downsamplefactor;
+                localCounter = 0u;
 
-                    counterEmbedded = counter / downsamplefactor;
+                counterEmbedded = counter / downsamplefactor;
 
-                    startTicksTimeOut = HighResolutionTimer::Counter();
+                startTicksTimeOut = HighResolutionTimer::Counter();
 
-                    do {
-                        ;
-                    }
-                    while (HighResolutionTimer::Counter() - startTicksTimeOut < timeOutTicks && !notRunning);
+                do {
+                    ;
+                }
+                while (HighResolutionTimer::Counter() - startTicksTimeOut < timeOutTicks && !notRunning);
 
-                    RFM2gPeek32(rfmhandle, RFM_TIME_OFFSET, (RFM2G_UINT32*) &(counterAndTimer[1]));
+                RFM2gPeek32(rfmhandle, RFM_TIME_OFFSET, (RFM2G_UINT32*) &(counterAndTimer[1]));
 
-                   // (void) fastMuxRFM.FastLock(TTInfiniteWait, 0.);
-                    Read(info);
-                    //fastMuxRFM.FastUnLock();
+                // (void) fastMuxRFM.FastLock(TTInfiniteWait, 0.);
+
+                Read(info);
+
+                //fastMuxRFM.FastUnLock();
+
 #ifdef _DEBUG
 
                 REPORT_ERROR(ErrorManagement::Information, "the slave has red");
@@ -1217,7 +1381,7 @@ ErrorManagement::ErrorType RFM2g::Execute(ExecutionInfo &info) {
 
 #endif
 
-                    bool check_counter = (counter < startcycle);
+                bool check_counter = (counter < startcycle);
 
 #ifdef _DEBUG
  if (check_counter) {
@@ -1228,22 +1392,25 @@ ErrorManagement::ErrorType RFM2g::Execute(ExecutionInfo &info) {
 
 #endif
 
-                    if (!check_counter) {
+                if (!check_counter) {
 
-                        if (executionMode == RFM2G_EXEC_MODE_SPAWNED) {
-                            err = !(synchSem.Post());
-
-                        }
-
-                        err = ErrorManagement::NoError;
+                    if (executionMode == RFM2G_EXEC_MODE_SPAWNED) {
+                        err = !(synchSem.Post());
 
                     }
+
+                    err = ErrorManagement::NoError;
 
                 }
 
             }
 
-            else {
+        }
+
+        else {
+
+            //Sleep::Sec(0.1);
+            //REPORT_ERROR(ErrorManagement::Information, "I am the embedded thread. counterEmbedded= %d", counterEmbedded);
 
 #ifdef _DEBUG
 
@@ -1252,14 +1419,8 @@ ErrorManagement::ErrorType RFM2g::Execute(ExecutionInfo &info) {
 
 #endif
 
-            }
-
         }
 
-        else {
-            // TODO: implement a not synchronizing (calling thread side) (node07 and node08 example)
-            // spawned data exchange with the RFM
-        }
     }
 
     return err;
@@ -1285,7 +1446,9 @@ ErrorManagement::ErrorType RFM2g::Read(ExecutionInfo &info) {
     }
 // TODO: how to handle an error here (RT phase) ?
 
+    (void) fastMuxRW.FastLock(TTInfiniteWait, 0.);
     readRemapping();
+    fastMuxRW.FastUnLock();
     EvaluateDiagnostcData();
 
     return ErrorManagement::NoError;
@@ -1293,8 +1456,9 @@ ErrorManagement::ErrorType RFM2g::Read(ExecutionInfo &info) {
 }
 
 ErrorManagement::ErrorType RFM2g::Write(ExecutionInfo &info) {
-
+    (void) fastMuxRW.FastLock(TTInfiniteWait, 0.);
     MemoryOperationsHelper::Copy(pOutputBufferInternal, pOutputBuffer, outputsize);
+    fastMuxRW.FastUnLock();
 
     int32 *ptCounter = (int32*) ((uint8*) pOutputBufferInternal + outputsize);
 
@@ -1777,9 +1941,6 @@ ErrorManagement::ErrorType RFM2g::SettingDiagnosticProtocol() {
 
     ErrorManagement::ErrorType err;
 
-
-
-
     err = SetInitialInfo();
 
     if (!err.fatalError) {
@@ -1801,9 +1962,6 @@ ErrorManagement::ErrorType RFM2g::SettingDiagnosticProtocol() {
     else {
         REPORT_ERROR(ErrorManagement::FatalError, "Failed to set the diagnostic protocol");
     }
-
-
-
 
     return err;
 
